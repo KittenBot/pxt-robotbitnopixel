@@ -112,6 +112,9 @@ namespace robotbit {
     function initPCA9685(): void {
         i2cwrite(PCA9685_ADDRESS, MODE1, 0x00)
         setFreq(50);
+        for (let idx = 0; idx < 16; idx++) {
+			setPwm(idx, 0 ,0);
+		}
         initialized = true
     }
 
@@ -189,6 +192,11 @@ namespace robotbit {
         pins.i2cWriteBuffer(HT16K33_ADDRESS, matBuf);
     }
 
+	/**
+	 * Servo Execute
+	 * @param index Servo Channel; eg: S1
+	 * @param degree [0-180] degree of servo; eg: 0, 90, 180
+	*/
     //% blockId=robotbit_servo block="Servo|%index|degree %degree"
     //% weight=100
     //% blockGap=50
@@ -210,12 +218,10 @@ namespace robotbit {
         if (!initialized) {
             initPCA9685()
         }
-        setFreq(100);
         setStepper(index, degree > 0);
         degree = Math.abs(degree);
-        basic.pause(5120 * degree / 360);
+        basic.pause(10240 * degree / 360);
         MotorStopAll()
-        setFreq(50);
     }
 
 
@@ -228,30 +234,65 @@ namespace robotbit {
 
     //% blockId=robotbit_stepper_dual block="Dual Stepper(Degree) |M1 %degree1| M2 %degree2"
     //% weight=89
-    //% blockGap=50
     export function StepperDual(degree1: number, degree2: number): void {
         if (!initialized) {
             initPCA9685()
         }
-        setFreq(100);
         setStepper(1, degree1 > 0);
         setStepper(2, degree2 > 0);
         degree1 = Math.abs(degree1);
         degree2 = Math.abs(degree2);
-        basic.pause(5120 * Math.min(degree1, degree2) / 360);
+        basic.pause(10240 * Math.min(degree1, degree2) / 360);
         if (degree1 > degree2) {
             stopMotor(3); stopMotor(4);
-            basic.pause(5120 * (degree1 - degree2) / 360);
+            basic.pause(10240 * (degree1 - degree2) / 360);
         } else {
             stopMotor(1); stopMotor(2);
-            basic.pause(5120 * (degree2 - degree1) / 360);
+            basic.pause(10240 * (degree2 - degree1) / 360);
         }
 
         MotorStopAll()
-        setFreq(50);
-
     }
-
+	
+	/**
+	 * Stepper Car move forward
+	 * @param distance Distance to move in cm; eg: 10, 20
+	 * @param diameter diameter of wheel in mm; eg: 48
+	*/
+	//% blockId=robotbit_stpcar_move block="Car Forward|Diameter(cm) %distance|Wheel Diameter(mm) %diameter"
+    //% weight=88
+    export function StpCarMove(distance: number, diameter: number): void {
+		if (!initialized) {
+            initPCA9685()
+        }
+		let delay = 10240 * 10 * distance / 3 / diameter; // use 3 instead of pi
+		setStepper(1, delay > 0);
+        setStepper(2, delay > 0);
+		delay = Math.abs(delay);
+		basic.pause(delay);
+        MotorStopAll()	
+    }
+	
+	/**
+	 * Stepper Car turn by degree
+	 * @param turn Degree to turn; eg: 90, 180, 360
+	 * @param diameter diameter of wheel in mm; eg: 48
+	 * @param track track width of car; eg: 125
+	*/
+	//% blockId=robotbit_stpcar_turn block="Car Turn|Degree %turn|Wheel Diameter(mm) %diameter|Track(mm) %track"
+    //% weight=87
+	//% blockGap=50
+    export function StpCarTurn(turn: number, diameter: number, track: number): void {
+		if (!initialized) {
+            initPCA9685()
+        }
+		let delay = 10240 * turn * track / 360 / diameter;
+		setStepper(1, delay < 0);
+        setStepper(2, delay > 0);
+		delay = Math.abs(delay);
+		basic.pause(delay);
+        MotorStopAll()
+    }
 
     //% blockId=robotbit_motor_run block="Motor|%index|speed %speed"
     //% weight=85
@@ -299,6 +340,12 @@ namespace robotbit {
         MotorRun(motor2, speed2);
     }
 
+	/**
+	 * Execute single motors with delay
+	 * @param index Motor Index; eg: M1A, M1B, M2A, M2B
+	 * @param speed [-255-255] speed of motor; eg: 150, -150
+	 * @param delay seconde delay to stop; eg: 1
+	*/
     //% blockId=robotbit_motor_rundelay block="Motor|%index|speed %speed|delay %delay|s"
     //% weight=81
     //% speed.min=-255 speed.max=255
